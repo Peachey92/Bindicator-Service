@@ -1,1 +1,35 @@
+name: Update Bin Schedule
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # Every day at 06:00
+  workflow_dispatch:       # Allows manual run
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        pip install beautifulsoup4 requests
+
+    - name: Run scraper
+      run: python scraper/scrape.py
+
+    - name: Commit updated JSON
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
+        git add docs/next.json
+        git commit -m "Update bin schedule" || echo "No changes to commit"
+        git push
 
