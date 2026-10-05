@@ -1,9 +1,8 @@
 name: Update bin schedule
-
 on:
   schedule:
-    - cron: "0 6 * * 1"   # every Monday 06:00 UK time-ish
-  workflow_dispatch:
+    - cron: "0 3 * * *"   # Run once at 03:00 UK time
+  workflow_dispatch:       # Still allows manual runs
 
 jobs:
   scrape:
