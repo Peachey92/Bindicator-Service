@@ -1,73 +1,86 @@
-import requests
-from bs4 import BeautifulSoup
 import json
-import sys
-import os
+import datetime
+import requests
 
-POSTCODE = "CB9 9SG"
-ADDRESS = "25 Sperling Drive, Haverhill, CB9 9SG"
+UPRN = "10010691280"
 
-URL = "https://www.westsuffolk.gov.uk/WhereWeLive/bincollections/index.cfm"
+# ⚠️ You’ll probably need to tweak this once we see the real API URL.
+API_URL = f"https://maps.westsuffolk.gov.uk/MyHouseService.svc/GetPropertyInfo?uprn={UPRN}"
 
-def fetch_bin_data():
-    # Step 1: Submit postcode
-    r = requests.post(URL, data={"postcode": POSTCODE})
-    soup = BeautifulSoup(r.text, "html.parser")
+OUTPUT_FILE = "next.json"
 
-    # Step 2: Find the address dropdown
-    select = soup.find("select", {"id": "address"})
-    if not select:
-        raise Exception("Could not find address dropdown")
 
-    # Step 3: Find the correct option
-    option = None
-    for opt in select.find_all("option"):
-        if ADDRESS.lower() in opt.text.lower():
-            option = opt["value"]
-            break
+def fetch_property_info():
+    resp = requests.get(API_URL, timeout=10)
+    resp.raise_for_status()
+    return resp.json()
 
-    if not option:
-        raise Exception("Address not found in dropdown")
 
-    # Step 4: Submit address selection
-    r2 = requests.post(URL, data={"postcode": POSTCODE, "address": option})
-    soup2 = BeautifulSoup(r2.text, "html.parser")
+def pick_next_and_following(collections):
+    """
+    collections: list of dicts with at least:
+      - 'date' (ISO or UK date string)
+      - 'types' (list of strings, e.g. ["Green", "Food"])
+    This is the structure we’ll align to once we see the real API.
+    """
+    # Sort by date ascending
+    def parse_date(d):
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S"):
+            try:
+                return datetime.datetime.strptime(d, fmt).date()
+            except ValueError:
+                continue
+        raise ValueError(f"Unrecognised date format: {d}")
 
-    # Step 5: Extract bin info
-    rows = soup2.find_all("tr")
+    sorted_cols = sorted(collections, key=lambda c: parse_date(c["date"]))
 
-    next_bin = None
-    next_date = None
+    next_col = sorted_cols[0]
+    following_col = sorted_cols[1] if len(sorted_cols) > 1 else None
 
-    for row in rows:
-        cols = row.find_all("td")
-        if len(cols) == 2:
-            bin_type = cols[0].text.strip()
-            date = cols[1].text.strip()
-
-            if "Next collection" in bin_type:
-                next_bin = bin_type.replace("Next collection:", "").strip()
-                next_date = date
-                break
-
-    if not next_bin:
-        raise Exception("Could not find next bin collection")
-
-    return {
-        "bin": next_bin,
-        "date": next_date
+    result = {
+        "next": {
+            "date": parse_date(next_col["date"]).isoformat(),
+            "types": next_col.get("types", []),
+        }
     }
 
-def write_json(data):
-    output_path = os.path.join("docs", "next.json")
-    with open(output_path, "w") as f:
-        json.dump(data, f, indent=4)
+    if following_col:
+        result["following"] = {
+            "date": parse_date(following_col["date"]).isoformat(),
+            "types": following_col.get("types", []),
+        }
+
+    return result
+
+
+def main():
+    data = fetch_property_info()
+
+    # --- TEMP: dump full JSON so we can see the real structure ---
+    with open("raw_westsuffolk.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+    # ⚠️ The next bit is an assumption until we see raw_westsuffolk.json.
+    # Adjust `collections_source` once we know where the bin data lives.
+    #
+    # Example target structure (what we want to end up with):
+    # collections = [
+    #   {"date": "2024-01-12", "types": ["Green", "Food"]},
+    #   {"date": "2024-01-19", "types": ["Black", "Food"]},
+    # ]
+    #
+    # For now, just fail loudly so we don’t silently write bad JSON.
+    raise RuntimeError(
+        "Inspect raw_westsuffolk.json to locate bin collection data, "
+        "then build the `collections` list and call pick_next_and_following(collections)."
+    )
+
+    # Once mapped, you’ll do something like:
+    # collections = build_collections_from_api(data)
+    # result = pick_next_and_following(collections)
+    # with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+    #     json.dump(result, f, indent=2)
+
 
 if __name__ == "__main__":
-    try:
-        data = fetch_bin_data()
-        write_json(data)
-        print("Updated next.json:", data)
-    except Exception as e:
-        print("Error:", e)
-        sys.exit(1)
+    main()
