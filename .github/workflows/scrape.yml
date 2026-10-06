@@ -23,7 +23,7 @@ jobs:
           pip install requests
 
       - name: Run scraper
-        run: python scrape.py
+        run: python scraper/scrape.py
 
       - name: Commit updated JSON
         run: |
