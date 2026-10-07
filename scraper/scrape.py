@@ -11,7 +11,19 @@ OUTPUT_FILE = "next.json"
 
 
 def fetch_html():
-    resp = requests.get(PAGE_URL, timeout=15)
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/128.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-GB,en;q=0.9",
+        "Referer": "https://maps.westsuffolk.gov.uk/",
+        "Connection": "keep-alive",
+    }
+
+    resp = requests.get(PAGE_URL, headers=headers, timeout=15)
     resp.raise_for_status()
     return resp.text
 
