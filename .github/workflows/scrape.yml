@@ -25,7 +25,7 @@ jobs:
 
       - name: Run scraper
         run: |
-          python scrape.py
+          python scraper/scrape.py
 
       - name: Commit and push results
         run: |
