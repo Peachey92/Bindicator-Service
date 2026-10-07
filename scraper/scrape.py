@@ -1,85 +1,109 @@
 import json
-import datetime
 import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
 
-UPRN = "10010691280"
-
-# ⚠️ You’ll probably need to tweak this once we see the real API URL.
-API_URL = f"https://maps.westsuffolk.gov.uk/MyHouseService.svc/GetPropertyInfo?uprn={UPRN}"
+# This is the page that shows your bin info AFTER selecting your address.
+# It does NOT change URL, so we just request it directly.
+PAGE_URL = "https://maps.westsuffolk.gov.uk/MyWestSuffolk.aspx"
 
 OUTPUT_FILE = "next.json"
 
 
-def fetch_property_info():
-    resp = requests.get(API_URL, timeout=10)
+def fetch_html():
+    resp = requests.get(PAGE_URL, timeout=15)
     resp.raise_for_status()
-    return resp.json()
+    return resp.text
 
 
-def pick_next_and_following(collections):
+def parse_bin_section(html):
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Find the bin section container
+    panel = soup.find("div", class_="atPanelData")
+    if not panel:
+        raise RuntimeError("Could not find .atPanelData in page HTML")
+
+    bins = {}
+
+    # Split the HTML by <br/> tags
+    for line in panel.decode_contents().split("<br"):
+        line_soup = BeautifulSoup(line, "html.parser")
+        strong = line_soup.find("strong")
+        if strong:
+            bin_type = strong.text.replace(":", "").strip()
+            # The date is the text node immediately after <strong>
+            date_text = strong.next_sibling.strip()
+            bins[bin_type] = date_text
+
+    return bins
+
+
+def convert_to_bindicator_format(bins):
     """
-    collections: list of dicts with at least:
-      - 'date' (ISO or UK date string)
-      - 'types' (list of strings, e.g. ["Green", "Food"])
-    This is the structure we’ll align to once we see the real API.
+    Convert the raw bin dict into the Bindicator JSON format:
+    {
+      "next": { "date": "...", "types": [...] },
+      "following": { ... }
+    }
     """
-    # Sort by date ascending
-    def parse_date(d):
-        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S"):
-            try:
-                return datetime.datetime.strptime(d, fmt).date()
-            except ValueError:
-                continue
-        raise ValueError(f"Unrecognised date format: {d}")
 
-    sorted_cols = sorted(collections, key=lambda c: parse_date(c["date"]))
+    # Convert each date into a real datetime so we can sort them
+    parsed = []
+    for bin_type, date_str in bins.items():
+        try:
+            # Example: "Friday 9th October"
+            date_obj = datetime.strptime(date_str, "%A %dth %B")
+        except ValueError:
+            # Try without "th", "rd", "st"
+            cleaned = (
+                date_str.replace("th", "")
+                .replace("rd", "")
+                .replace("st", "")
+                .replace("nd", "")
+            )
+            date_obj = datetime.strptime(cleaned, "%A %d %B")
 
-    next_col = sorted_cols[0]
-    following_col = sorted_cols[1] if len(sorted_cols) > 1 else None
+        parsed.append({
+            "date": date_obj,
+            "type": bin_type
+        })
+
+    # Sort by date
+    parsed.sort(key=lambda x: x["date"])
+
+    # Build Bindicator JSON
+    next_date = parsed[0]["date"].strftime("%Y-%m-%d")
+    next_types = [parsed[0]["type"]]
+
+    following_date = parsed[1]["date"].strftime("%Y-%m-%d") if len(parsed) > 1 else None
+    following_types = [parsed[1]["type"]] if len(parsed) > 1 else []
 
     result = {
         "next": {
-            "date": parse_date(next_col["date"]).isoformat(),
-            "types": next_col.get("types", []),
+            "date": next_date,
+            "types": next_types
         }
     }
 
-    if following_col:
+    if following_date:
         result["following"] = {
-            "date": parse_date(following_col["date"]).isoformat(),
-            "types": following_col.get("types", []),
+            "date": following_date,
+            "types": following_types
         }
 
     return result
 
 
 def main():
-    data = fetch_property_info()
+    html = fetch_html()
+    bins = parse_bin_section(html)
+    result = convert_to_bindicator_format(bins)
 
-    # --- TEMP: dump full JSON so we can see the real structure ---
-    with open("raw_westsuffolk.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2)
 
-    # ⚠️ The next bit is an assumption until we see raw_westsuffolk.json.
-    # Adjust `collections_source` once we know where the bin data lives.
-    #
-    # Example target structure (what we want to end up with):
-    # collections = [
-    #   {"date": "2024-01-12", "types": ["Green", "Food"]},
-    #   {"date": "2024-01-19", "types": ["Black", "Food"]},
-    # ]
-    #
-    # For now, just fail loudly so we don’t silently write bad JSON.
-    raise RuntimeError(
-        "Inspect raw_westsuffolk.json to locate bin collection data, "
-        "then build the `collections` list and call pick_next_and_following(collections)."
-    )
-
-    # Once mapped, you’ll do something like:
-    # collections = build_collections_from_api(data)
-    # result = pick_next_and_following(collections)
-    # with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-    #     json.dump(result, f, indent=2)
+    print("Updated next.json")
 
 
 if __name__ == "__main__":
