@@ -1,8 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
 import json
+import os
 
 URL = "https://mapstest.westsuffolk.gov.uk/MyWestSuffolk.aspx"
+OUTPUT_PATH = "docs/next.json"
 
 def fetch_page():
     r = requests.get(URL, timeout=20)
@@ -33,7 +35,11 @@ def parse_bins(html):
 def main():
     html = fetch_page()
     bins = parse_bins(html)
-    print(json.dumps(bins, indent=2))
+
+    os.makedirs("docs", exist_ok=True)
+
+    with open(OUTPUT_PATH, "w") as f:
+        json.dump(bins, f, indent=2)
 
 if __name__ == "__main__":
     main()
