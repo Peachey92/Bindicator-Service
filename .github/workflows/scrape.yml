@@ -31,6 +31,6 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add next.json
+          git add docs/next.json
           git commit -m "Update bin collection data" || echo "No changes to commit"
           git push
