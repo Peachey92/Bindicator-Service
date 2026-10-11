@@ -34,6 +34,9 @@ def parse_bins(html):
 
 def main():
     html = fetch_page()
+
+with open("docs/debug.html", "w", encoding="utf-8") as f:
+    f.write(html)
     bins = parse_bins(html)
 
     os.makedirs("docs", exist_ok=True)
