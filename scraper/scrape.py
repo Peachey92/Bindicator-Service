@@ -35,11 +35,12 @@ def parse_bins(html):
 def main():
     html = fetch_page()
 
-with open("docs/debug.html", "w", encoding="utf-8") as f:
-    f.write(html)
-    bins = parse_bins(html)
-
+    # Save the HTML the scraper actually receives
     os.makedirs("docs", exist_ok=True)
+    with open("docs/debug.html", "w", encoding="utf-8") as f:
+        f.write(html)
+
+    bins = parse_bins(html)
 
     with open(OUTPUT_PATH, "w") as f:
         json.dump(bins, f, indent=2)
