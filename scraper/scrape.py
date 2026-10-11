@@ -1,49 +1,86 @@
 import requests
-from bs4 import BeautifulSoup
 import json
 import os
 
-URL = "https://mapstest.westsuffolk.gov.uk/MyWestSuffolk.aspx"
-OUTPUT_PATH = "docs/next.json"
+# CONFIG — you will fill these in
+UPRN = "10010691280"
 
-def fetch_page():
-    r = requests.get(URL, timeout=20)
+# West Suffolk’s GetData endpoint
+BASE_URL = "https://mapstest.westsuffolk.gov.uk/getdata.aspx"
+
+# The group name for waste/recycling varies by council.
+# Common values: "Waste Collection", "Refuse Collection", "Recycling Collection"
+GROUP = "Waste Collection"
+
+OUTPUT_JSON = "docs/next.json"
+DEBUG_HTML = "docs/debug.html"
+
+
+def fetch_localinfo(uprn, group):
+    """
+    Calls Astun's GetData LocalInfo API directly.
+    This bypasses the entire MyWestSuffolk.aspx UI.
+    """
+    params = {
+        "RequestType": "LocalInfo",
+        "ms": "mapsources/MyHouse",   # typical profile name; councils vary
+        "format": "JSON",
+        "uid": uprn,
+        "group": group
+    }
+
+    r = requests.get(BASE_URL, params=params, timeout=20)
     r.raise_for_status()
     return r.text
 
-def parse_bins(html):
-    soup = BeautifulSoup(html, "html.parser")
 
-    panel = soup.find("div", {"aria-label": "Waste and recycling"})
-    if not panel:
-        return {"error": "Bin panel not found"}
+def parse_bins(json_text):
+    """
+    Extracts bin collection dates from the LocalInfo JSON.
+    The exact structure varies by council, but most follow:
+    {
+      "Items": [
+        {"Name": "Refuse", "NextCollection": "2024-10-12"},
+        {"Name": "Recycling", "NextCollection": "2024-10-19"}
+      ]
+    }
+    """
+    try:
+        data = json.loads(json_text)
+    except json.JSONDecodeError:
+        return {"error": "Invalid JSON returned from GetData"}
 
-    data = panel.find("div", class_="atPanelData")
-    if not data:
-        return {"error": "Bin data not found"}
-
-    lines = [line.strip() for line in data.stripped_strings]
+    items = data.get("Items")
+    if not items:
+        return {"error": "No bin items found in LocalInfo response"}
 
     bins = {}
-    for line in lines:
-        if ":" in line:
-            name, date = line.split(":", 1)
-            bins[name.strip()] = date.strip()
+    for item in items:
+        name = item.get("Name")
+        date = item.get("NextCollection") or item.get("CollectionDate")
+        if name and date:
+            bins[name] = date
 
     return bins
 
-def main():
-    html = fetch_page()
 
+def main():
     os.makedirs("docs", exist_ok=True)
 
-    with open("docs/debug.html", "w", encoding="utf-8") as f:
-        f.write(html)
+    # Fetch raw JSON from GetData API
+    raw = fetch_localinfo(UPRN, GROUP)
 
-    bins = parse_bins(html)
+    # Save raw response for debugging
+    with open(DEBUG_HTML, "w", encoding="utf-8") as f:
+        f.write(raw)
 
-    with open(OUTPUT_PATH, "w") as f:
+    # Parse bin data
+    bins = parse_bins(raw)
+
+    # Save parsed bin data
+    with open(OUTPUT_JSON, "w") as f:
         json.dump(bins, f, indent=2)
+
 
 if __name__ == "__main__":
     main()
