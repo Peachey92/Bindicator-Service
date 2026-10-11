@@ -1,122 +1,68 @@
-import json
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+import json
 
-# This is the page that shows your bin info AFTER selecting your address.
-# It does NOT change URL, so we just request it directly.
-PAGE_URL = "https://maps.westsuffolk.gov.uk/MyWestSuffolk.aspx"
+BASE = "https://mapstest.westsuffolk.gov.uk"
 
-OUTPUT_FILE = "next.json"
-
-
-def fetch_html():
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/128.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-GB,en;q=0.9",
-        "Referer": "https://maps.westsuffolk.gov.uk/",
-        "Connection": "keep-alive",
+def search_postcode(postcode):
+    url = f"{BASE}/getdata.aspx"
+    params = {
+        "service": "LocationSearch",
+        "RequestType": "LocationSearch",
+        "location": postcode,
+        "pagesize": 20,
+        "startnum": 1,
+        "gettotals": "false",
+        "mapsource": "mapsources/MyHouse",
+        "type": "jsonp"
     }
+    r = requests.get(url, params=params)
+    text = r.text
 
-    resp = requests.get(PAGE_URL, headers=headers, timeout=15)
-    resp.raise_for_status()
-    return resp.text
+    # Strip JSONP wrapper
+    json_start = text.find("(") + 1
+    json_end = text.rfind(")")
+    data = json.loads(text[json_start:json_end])
 
+    # Pick first matching address
+    result = data["results"][0]
+    return result["uprn"], result["address"]
 
-def parse_bin_section(html):
+def fetch_aae_page(uprn):
+    url = f"{BASE}/MyWestSuffolk.aspx"
+    params = {
+        "uprn": uprn,
+        "tab": "MyHouse"
+    }
+    r = requests.get(url, params=params)
+    return r.text
+
+def parse_bins(html):
     soup = BeautifulSoup(html, "html.parser")
 
-    # Find the bin section container
-    panel = soup.find("div", class_="atPanelData")
+    panel = soup.find("div", {"aria-label": "Waste and recycling"})
     if not panel:
-        raise RuntimeError("Could not find .atPanelData in page HTML")
+        return None
+
+    data = panel.find("div", class_="atPanelData")
+    lines = [line.strip() for line in data.stripped_strings]
 
     bins = {}
-
-    # Split the HTML by <br/> tags
-    for line in panel.decode_contents().split("<br"):
-        line_soup = BeautifulSoup(line, "html.parser")
-        strong = line_soup.find("strong")
-        if strong:
-            bin_type = strong.text.replace(":", "").strip()
-            # The date is the text node immediately after <strong>
-            date_text = strong.next_sibling.strip()
-            bins[bin_type] = date_text
+    for line in lines:
+        if ":" in line:
+            name, date = line.split(":", 1)
+            bins[name.strip()] = date.strip()
 
     return bins
 
-
-def convert_to_bindicator_format(bins):
-    """
-    Convert the raw bin dict into the Bindicator JSON format:
-    {
-      "next": { "date": "...", "types": [...] },
-      "following": { ... }
-    }
-    """
-
-    # Convert each date into a real datetime so we can sort them
-    parsed = []
-    for bin_type, date_str in bins.items():
-        try:
-            # Example: "Friday 9th October"
-            date_obj = datetime.strptime(date_str, "%A %dth %B")
-        except ValueError:
-            # Try without "th", "rd", "st"
-            cleaned = (
-                date_str.replace("th", "")
-                .replace("rd", "")
-                .replace("st", "")
-                .replace("nd", "")
-            )
-            date_obj = datetime.strptime(cleaned, "%A %d %B")
-
-        parsed.append({
-            "date": date_obj,
-            "type": bin_type
-        })
-
-    # Sort by date
-    parsed.sort(key=lambda x: x["date"])
-
-    # Build Bindicator JSON
-    next_date = parsed[0]["date"].strftime("%Y-%m-%d")
-    next_types = [parsed[0]["type"]]
-
-    following_date = parsed[1]["date"].strftime("%Y-%m-%d") if len(parsed) > 1 else None
-    following_types = [parsed[1]["type"]] if len(parsed) > 1 else []
-
-    result = {
-        "next": {
-            "date": next_date,
-            "types": next_types
-        }
+def get_bin_schedule(postcode):
+    uprn, address = search_postcode(postcode)
+    html = fetch_aae_page(uprn)
+    bins = parse_bins(html)
+    return {
+        "address": address,
+        "uprn": uprn,
+        "bins": bins
     }
 
-    if following_date:
-        result["following"] = {
-            "date": following_date,
-            "types": following_types
-        }
-
-    return result
-
-
-def main():
-    html = fetch_html()
-    bins = parse_bin_section(html)
-    result = convert_to_bindicator_format(bins)
-
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2)
-
-    print("Updated next.json")
-
-
-if __name__ == "__main__":
-    main()
+print(get_bin_schedule("CB9 9SG"))
