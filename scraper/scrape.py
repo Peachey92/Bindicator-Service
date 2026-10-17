@@ -8,7 +8,7 @@ ADDRESS_TEXT = "25 Sperling Drive, Haverhill, CB9 9SG"
 
 async def main():
     async with async_playwright() as p:
-        # ⭐ Option A: NON‑HEADLESS MODE (required for JS + cookies)
+        # ⭐ NON‑HEADLESS MODE (required for JS + cookies)
         browser = await p.chromium.launch(
             headless=False,
             args=["--disable-blink-features=AutomationControlled"]
@@ -16,6 +16,10 @@ async def main():
 
         context = await browser.new_context()
         page = await context.new_page()
+
+        # ⭐ Capture JS console output
+        console_messages = []
+        page.on("console", lambda msg: console_messages.append(f"{msg.type()}: {msg.text()}"))
 
         print("Loading BAE…")
         await page.goto(BAE_URL, timeout=60000)
@@ -56,6 +60,9 @@ async def main():
             '{"status": "AAE page loaded — parsing not yet implemented"}',
             encoding="utf-8"
         )
+
+        # ⭐ Write console output BEFORE closing browser
+        Path("docs/console.txt").write_text("\n".join(console_messages), encoding="utf-8")
 
         await browser.close()
 
