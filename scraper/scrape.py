@@ -8,7 +8,6 @@ ADDRESS_TEXT = "25 Sperling Drive, Haverhill, CB9 9SG"
 
 async def main():
     async with async_playwright() as p:
-        # ⭐ NON‑HEADLESS MODE (required for JS + cookies)
         browser = await p.chromium.launch(
             headless=False,
             args=["--disable-blink-features=AutomationControlled"]
@@ -17,9 +16,9 @@ async def main():
         context = await browser.new_context()
         page = await context.new_page()
 
-        # ⭐ Capture JS console output
+        # ⭐ Capture JS console output (corrected)
         console_messages = []
-        page.on("console", lambda msg: console_messages.append(f"{msg.type()}: {msg.text()}"))
+        page.on("console", lambda msg: console_messages.append(f"{msg.type}: {msg.text}"))
 
         print("Loading BAE…")
         await page.goto(BAE_URL, timeout=60000)
