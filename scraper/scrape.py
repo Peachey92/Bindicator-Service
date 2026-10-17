@@ -1,86 +1,52 @@
-import requests
+import asyncio
 import json
-import os
+from pathlib import Path
+from playwright.async_api import async_playwright
 
-# CONFIG — you will fill these in
-UPRN = "10010691280"
+BAE_URL = "https://maps.westsuffolk.gov.uk/"
+POSTCODE = "CB9 9SG"          # change as needed
+ADDRESS_INDEX = 0             # which address to pick from the list
 
-# West Suffolk’s GetData endpoint
-BASE_URL = "https://mapstest.westsuffolk.gov.uk/getdata.aspx"
+async def main():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
 
-# The group name for waste/recycling varies by council.
-# Common values: "Waste Collection", "Refuse Collection", "Recycling Collection"
-GROUP = "Waste Collection"
+        # Step 1: Reach BAE
+        await page.goto(BAE_URL, timeout=60000)
 
-OUTPUT_JSON = "docs/next.json"
-DEBUG_HTML = "docs/debug.html"
+        # Step 2: Enter postcode exactly like a human
+        await page.fill("#txtSearch", POSTCODE)
+        await page.click("#btnSearch")
 
+        # Wait for the address list to appear
+        await page.wait_for_selector("#lstResults option", timeout=60000)
 
-def fetch_localinfo(uprn, group):
-    """
-    Calls Astun's GetData LocalInfo API directly.
-    This bypasses the entire MyWestSuffolk.aspx UI.
-    """
-    params = {
-        "RequestType": "LocalInfo",
-        "ms": "mapsources/MyHouse",   # typical profile name; councils vary
-        "format": "JSON",
-        "uid": uprn,
-        "group": group
-    }
+        # Select the first matching address
+        options = await page.query_selector_all("#lstResults option")
+        await options[ADDRESS_INDEX].click()
 
-    r = requests.get(BASE_URL, params=params, timeout=20)
-    r.raise_for_status()
-    return r.text
+        # Click "My House" tab (this triggers the AAE content)
+        await page.click("#btnMyHouse")
 
+        # Step 3: Wait for bin data to load
+        await page.wait_for_selector("#divBinCollection", timeout=60000)
 
-def parse_bins(json_text):
-    """
-    Extracts bin collection dates from the LocalInfo JSON.
-    The exact structure varies by council, but most follow:
-    {
-      "Items": [
-        {"Name": "Refuse", "NextCollection": "2024-10-12"},
-        {"Name": "Recycling", "NextCollection": "2024-10-19"}
-      ]
-    }
-    """
-    try:
-        data = json.loads(json_text)
-    except json.JSONDecodeError:
-        return {"error": "Invalid JSON returned from GetData"}
+        # Capture full HTML for debugging
+        html = await page.content()
+        Path("docs/debug.html").write_text(html, encoding="utf-8")
 
-    items = data.get("Items")
-    if not items:
-        return {"error": "No bin items found in LocalInfo response"}
+        # Extract bin data
+        bin_div = await page.query_selector("#divBinCollection")
+        bin_text = await bin_div.inner_text()
 
-    bins = {}
-    for item in items:
-        name = item.get("Name")
-        date = item.get("NextCollection") or item.get("CollectionDate")
-        if name and date:
-            bins[name] = date
+        # Step 4: Save in hardware-friendly JSON
+        result = {
+            "raw": bin_text
+        }
+        Path("docs/next.json").write_text(json.dumps(result, indent=2))
 
-    return bins
-
-
-def main():
-    os.makedirs("docs", exist_ok=True)
-
-    # Fetch raw JSON from GetData API
-    raw = fetch_localinfo(UPRN, GROUP)
-
-    # Save raw response for debugging
-    with open(DEBUG_HTML, "w", encoding="utf-8") as f:
-        f.write(raw)
-
-    # Parse bin data
-    bins = parse_bins(raw)
-
-    # Save parsed bin data
-    with open(OUTPUT_JSON, "w") as f:
-        json.dump(bins, f, indent=2)
-
+        await browser.close()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
