@@ -17,20 +17,35 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-        
+
+      # Install Playwright Python bindings
       - name: Install Playwright
         run: pip install playwright
 
+      # Install Playwright browser binaries + dependencies
       - name: Install Playwright Browsers
         run: playwright install --with-deps
 
+      # Run scraper but DO NOT stop workflow if it fails
       - name: Run scraper
-        run: python scraper/scrape.py
+        run: |
+          python scraper/scrape.py || true
 
-      - name: Commit results
+      # Always commit debug.html even if scraper crashed
+      - name: Commit debug output
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add docs/*
-          git commit -m "Update bin data"
+
+          # Add debug.html if it exists
+          if [ -f docs/debug.html ]; then
+            git add docs/debug.html
+          fi
+
+          # Add next.json if it exists
+          if [ -f docs/next.json ]; then
+            git add docs/next.json
+          fi
+
+          git commit -m "Update debug.html and next.json" || echo "No changes to commit"
           git push
