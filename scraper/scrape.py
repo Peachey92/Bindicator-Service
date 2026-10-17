@@ -16,12 +16,16 @@ async def main():
         context = await browser.new_context()
         page = await context.new_page()
 
-        # ⭐ Capture JS console output (corrected)
+        # ⭐ Capture JS console output
         console_messages = []
         page.on("console", lambda msg: console_messages.append(f"{msg.type}: {msg.text}"))
 
         print("Loading BAE…")
         await page.goto(BAE_URL, timeout=60000)
+
+        # ⭐ Immediately dump console output after page load
+        # This guarantees console.txt exists even if the script dies later
+        Path("docs/console.txt").write_text("\n".join(console_messages), encoding="utf-8")
 
         # ⭐ Write BAE debug immediately
         bae_html = await page.content()
@@ -32,6 +36,9 @@ async def main():
         # ⭐ Step 2: Enter postcode
         await page.fill("#atTextSearch", POSTCODE)
         print("Filled postcode")
+
+        # ⭐ Dump console again after postcode fill
+        Path("docs/console.txt").write_text("\n".join(console_messages), encoding="utf-8")
 
         # ⭐ Step 3: Wait for address list
         await page.wait_for_selector("li[data-address]", timeout=30000)
@@ -60,7 +67,7 @@ async def main():
             encoding="utf-8"
         )
 
-        # ⭐ Write console output BEFORE closing browser
+        # ⭐ Final console dump
         Path("docs/console.txt").write_text("\n".join(console_messages), encoding="utf-8")
 
         await browser.close()
