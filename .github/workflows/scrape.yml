@@ -34,32 +34,32 @@ jobs:
       # Always commit debug.html even if scraper crashed
       - name: Commit debug output
         run: |
-git config user.name "github-actions"
-git config user.email "github-actions@github.com"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
 
-# Add BAE debug file
-if [ -f docs/debug.html ]; then
-  git add docs/debug.html
-fi
+          # Add BAE debug file
+          if [ -f docs/debug.html ]; then
+            git add docs/debug.html
+          fi
 
-# Add AAE debug file
-if [ -f docs/aae_debug.html ]; then
-  git add docs/aae_debug.html
-fi
+          # Add AAE debug file
+          if [ -f docs/aae_debug.html ]; then
+            git add docs/aae_debug.html
+          fi
 
-# Add screenshots if they exist
-if [ -f docs/bae.png ]; then
-  git add docs/bae.png
-fi
+          # Add screenshots if they exist
+          if [ -f docs/bae.png ]; then
+            git add docs/bae.png
+          fi
 
-if [ -f docs/aae.png ]; then
-  git add docs/aae.png
-fi
+          if [ -f docs/aae.png ]; then
+            git add docs/aae.png
+          fi
 
-# Add next.json
-if [ -f docs/next.json ]; then
-  git add docs/next.json
-fi
+          # Add next.json
+          if [ -f docs/next.json ]; then
+            git add docs/next.json
+          fi
 
-          git commit -m "Update debug.html and next.json" || echo "No changes to commit"
+          git commit -m "Update debug and output files" || echo "No changes to commit"
           git push
