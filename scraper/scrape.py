@@ -4,7 +4,6 @@ from playwright.async_api import async_playwright
 
 BAE_URL = "https://maps.westsuffolk.gov.uk/"
 POSTCODE = "25 CB9 9SG"
-ADDRESS_TEXT = "25 Sperling Drive, Haverhill, CB9 9SG"
 
 async def main():
     async with async_playwright() as p:
@@ -31,23 +30,19 @@ async def main():
         await page.fill("#atTextSearch", POSTCODE)
         print("Filled postcode")
 
-        # Step 2: Click Find immediately
-        await page.click("input.atSearchBtn")
-        print("Clicked Find")
+        # Step 2: TAB into dropdown
+        await page.press("#atTextSearch", "Tab")
+        print("Pressed Tab")
 
-        # Step 3: Wait for the address list page
-        await page.wait_for_selector("a[href*='SetAddress']", timeout=30000)
-        print("Address list page loaded")
+        # Step 3: ENTER to select first dropdown item
+        await page.press("#atTextSearch", "Enter")
+        print("Pressed Enter to select dropdown item")
 
-        # Step 4: Click the correct address link
-        await page.click(f"a:has-text('{ADDRESS_TEXT}')")
-        print("Clicked address link")
-
-        # Step 5: Wait for AAE page
+        # Step 4: Wait for AAE page
         await page.wait_for_selector("#atWasteCollection", timeout=30000)
         print("Reached AAE")
 
-        # Step 6: Dump AAE debug
+        # Step 5: Dump AAE debug
         Path("docs/aae_debug.html").write_text(await page.content(), encoding="utf-8")
         await page.screenshot(path="docs/aae.png")
 
