@@ -8,7 +8,7 @@ AAE_URL = "https://maps.westsuffolk.gov.uk/?action=SetAddress&UniqueId=100106912
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(
-            headless=False,
+            headless=True,
             args=["--disable-blink-features=AutomationControlled"]
         )
 
@@ -24,7 +24,6 @@ async def main():
         # Save initial debug
         Path("docs/console.txt").write_text("\n".join(console_messages), encoding="utf-8")
         Path("docs/debug.html").write_text(await page.content(), encoding="utf-8")
-        await page.screenshot(path="docs/bae.png")
         print("Homepage loaded")
 
         # Step 2: Navigate to AAE using the established session
@@ -37,7 +36,6 @@ async def main():
 
         # Save AAE debug
         Path("docs/aae_debug.html").write_text(await page.content(), encoding="utf-8")
-        await page.screenshot(path="docs/aae.png")
 
         Path("docs/next.json").write_text(
             '{"status": "AAE page loaded — parsing not yet implemented"}',
