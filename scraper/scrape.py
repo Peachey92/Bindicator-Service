@@ -26,23 +26,31 @@ async def main():
         await page.screenshot(path="docs/bae.png")
         print("Reached BAE")
 
-        # Step 1: Enter postcode
-        await page.fill("#atTextSearch", POSTCODE)
-        print("Filled postcode")
+        # Step 1: Click input and type postcode slowly
+        await page.click("#atTextSearch")
+        await page.keyboard.type(POSTCODE, delay=120)
+        print("Typed postcode")
 
-        # Step 2: TAB into dropdown
-        await page.press("#atTextSearch", "Tab")
-        print("Pressed Tab")
+        # Step 1.5: Give autocomplete time to react
+        await asyncio.sleep(0.5)
 
-        # Step 3: ENTER to select first dropdown item
-        await page.press("#atTextSearch", "Enter")
+        # Step 2: Wait for dropdown to appear
+        await page.wait_for_selector("li[data-address]", timeout=30000)
+        print("Dropdown appeared")
+
+        # Step 3: ArrowDown to highlight first item
+        await page.keyboard.press("ArrowDown")
+        print("Pressed ArrowDown")
+
+        # Step 4: Enter to select it
+        await page.keyboard.press("Enter")
         print("Pressed Enter to select dropdown item")
 
-        # Step 4: Wait for AAE page
+        # Step 5: Wait for AAE page
         await page.wait_for_selector("#atWasteCollection", timeout=30000)
         print("Reached AAE")
 
-        # Step 5: Dump AAE debug
+        # Step 6: Dump AAE debug
         Path("docs/aae_debug.html").write_text(await page.content(), encoding="utf-8")
         await page.screenshot(path="docs/aae.png")
 
