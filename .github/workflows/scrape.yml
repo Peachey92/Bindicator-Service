@@ -3,7 +3,7 @@ name: Update Bin Data
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 */6 * * *"
+    - cron: "0 6 * * *"
 
 jobs:
   update:
@@ -18,7 +18,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Install Playwright Python bindings
       - name: Install Playwright
         run: pip install playwright
 
@@ -36,7 +35,6 @@ jobs:
         run: |
           python scraper/scrape.py || true
 
-      # Always commit debug.html even if scraper crashed
       - name: Commit debug output
         run: |
           git config user.name "github-actions"
@@ -47,14 +45,34 @@ jobs:
             git add docs/console.txt
           fi
 
-          # Add BAE debug file
+          # Add original debug files
           if [ -f docs/debug.html ]; then
             git add docs/debug.html
           fi
 
-          # Add AAE debug file
           if [ -f docs/aae_debug.html ]; then
             git add docs/aae_debug.html
+          fi
+
+          # Add step debug files
+          if [ -f docs/debug_step1_home.html ]; then
+            git add docs/debug_step1_home.html
+          fi
+
+          if [ -f docs/debug_step2_before_aae.html ]; then
+            git add docs/debug_step2_before_aae.html
+          fi
+
+          if [ -f docs/debug_step3_after_aae_goto.html ]; then
+            git add docs/debug_step3_after_aae_goto.html
+          fi
+
+          if [ -f docs/debug_step4_before_selector.html ]; then
+            git add docs/debug_step4_before_selector.html
+          fi
+
+          if [ -f docs/debug_step5_after_selector.html ]; then
+            git add docs/debug_step5_after_selector.html
           fi
 
           # Add screenshots if they exist
