@@ -5,6 +5,9 @@ from playwright.async_api import async_playwright
 HOME_URL = "https://maps.westsuffolk.gov.uk/"
 AAE_URL = "https://maps.westsuffolk.gov.uk/?action=SetAddress&UniqueId=10010691280"
 
+async def dump(page, filename):
+    Path(f"docs/{filename}").write_text(await page.content(), encoding="utf-8")
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -18,27 +21,34 @@ async def main():
         console_messages = []
         page.on("console", lambda msg: console_messages.append(f"{msg.type}: {msg.text}"))
 
-        print("Loading homepage to establish session…")
-        await page.goto(HOME_URL, timeout=60000)
+        print("STEP 1: Loading homepage…")
+        await page.goto(HOME_URL, wait_until="domcontentloaded", timeout=60000)
+        await dump(page, "debug_step1_home.html")
 
-        # Save initial debug
         Path("docs/console.txt").write_text("\n".join(console_messages), encoding="utf-8")
-        Path("docs/debug.html").write_text(await page.content(), encoding="utf-8")
         print("Homepage loaded")
 
-        # Step 2: Navigate to AAE using the established session
-        print("Navigating to AAE…")
-        await page.goto(AAE_URL, timeout=60000)
+        print("STEP 2: Before navigating to AAE…")
+        await dump(page, "debug_step2_before_aae.html")
 
-        # Step 3: Wait for AAE content
-        await page.wait_for_selector("#atWasteCollection", timeout=60000)
-        print("Reached AAE")
+        print("STEP 3: Navigating to AAE…")
+        await page.goto(AAE_URL, wait_until="domcontentloaded", timeout=60000)
+        await dump(page, "debug_step3_after_aae_goto.html")
 
-        # Save AAE debug
-        Path("docs/aae_debug.html").write_text(await page.content(), encoding="utf-8")
+        print("STEP 4: Before waiting for AAE selector…")
+        await dump(page, "debug_step4_before_selector.html")
+
+        try:
+            await page.wait_for_selector("#atWasteCollection", timeout=15000)
+            print("AAE selector found")
+        except Exception as e:
+            print("Selector wait failed:", e)
+
+        print("STEP 5: After selector wait…")
+        await dump(page, "debug_step5_after_selector.html")
 
         Path("docs/next.json").write_text(
-            '{"status": "AAE page loaded — parsing not yet implemented"}',
+            '{"status": "debug complete — inspect debug_step*.html files"}',
             encoding="utf-8"
         )
 
