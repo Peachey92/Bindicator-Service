@@ -2,7 +2,8 @@ import asyncio
 from pathlib import Path
 from playwright.async_api import async_playwright
 
-BAE_URL = "https://maps.westsuffolk.gov.uk/?action=SetAddress&UniqueId=10010691280"
+HOME_URL = "https://maps.westsuffolk.gov.uk/"
+AAE_URL = "https://maps.westsuffolk.gov.uk/?action=SetAddress&UniqueId=10010691280"
 
 async def main():
     async with async_playwright() as p:
@@ -17,19 +18,27 @@ async def main():
         console_messages = []
         page.on("console", lambda msg: console_messages.append(f"{msg.type}: {msg.text}"))
 
-        print("Loading AAE directly…")
-        await page.goto(BAE_URL, timeout=60000)
+        print("Loading homepage to establish session…")
+        await page.goto(HOME_URL, timeout=60000)
 
-        # Save console
+        # Save initial debug
         Path("docs/console.txt").write_text("\n".join(console_messages), encoding="utf-8")
+        Path("docs/debug.html").write_text(await page.content(), encoding="utf-8")
+        await page.screenshot(path="docs/bae.png")
+        print("Homepage loaded")
 
-        # Save AAE HTML + screenshot
-        aae_html = await page.content()
-        Path("docs/aae_debug.html").write_text(aae_html, encoding="utf-8")
-        await page.screenshot(path="docs/aae.png")
+        # Step 2: Navigate to AAE using the established session
+        print("Navigating to AAE…")
+        await page.goto(AAE_URL, timeout=60000)
+
+        # Step 3: Wait for AAE content
+        await page.wait_for_selector("#atWasteCollection", timeout=60000)
         print("Reached AAE")
 
-        # Placeholder next.json
+        # Save AAE debug
+        Path("docs/aae_debug.html").write_text(await page.content(), encoding="utf-8")
+        await page.screenshot(path="docs/aae.png")
+
         Path("docs/next.json").write_text(
             '{"status": "AAE page loaded — parsing not yet implemented"}',
             encoding="utf-8"
