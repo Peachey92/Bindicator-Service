@@ -1,9 +1,73 @@
 import asyncio
 from pathlib import Path
 from playwright.async_api import async_playwright
+import re
+from datetime import datetime, date
+import json
 
 HOME_URL = "https://maps.westsuffolk.gov.uk/"
 AAE_URL = "https://maps.westsuffolk.gov.uk/?action=SetAddress&UniqueId=10010691280"
+
+
+def parse_bin_panel(html: str):
+    """
+    Extracts bin types and dates from the AAE HTML panel.
+    Returns a dict: { "Food": date, "Black": date, ... }
+    """
+
+    panel_match = re.search(r'<div class="atPanelData">(.*?)</div>', html, re.S)
+    if not panel_match:
+        return None
+
+    panel = panel_match.group(1)
+
+    # Regex: <strong>Food Bins:</strong> Friday 30th October
+    entries = re.findall(
+        r'<strong>(.*?) Bins:</strong>\s*([A-Za-z]+\s+\d{1,2}\w*\s+[A-Za-z]+)',
+        panel
+    )
+
+    results = {}
+    for bin_type, date_str in entries:
+        # Remove ordinal suffixes (st, nd, rd, th)
+        cleaned = (
+            date_str.replace("st", "")
+                    .replace("nd", "")
+                    .replace("rd", "")
+                    .replace("th", "")
+        )
+
+        # Convert "Friday 30 October" → datetime.date
+        parsed = datetime.strptime(cleaned, "%A %d %B").date()
+
+        # Year is missing → assume current or next year
+        today = date.today()
+        parsed = parsed.replace(year=today.year)
+        if parsed < today:
+            parsed = parsed.replace(year=today.year + 1)
+
+        results[bin_type] = parsed
+
+    return results
+
+
+def compute_next_bin(bin_dates: dict):
+    """
+    Given a dict of bin dates, returns the next upcoming bin.
+    """
+    today = date.today()
+    upcoming = sorted(bin_dates.items(), key=lambda x: x[1])
+
+    for bin_type, bin_date in upcoming:
+        if bin_date >= today:
+            return {
+                "type": bin_type,
+                "date": bin_date.isoformat(),
+                "days_until": (bin_date - today).days
+            }
+
+    return None
+
 
 async def main():
     async with async_playwright() as p:
@@ -48,16 +112,31 @@ async def main():
             await browser.close()
             return
 
-        # Save the AAE HTML for parsing in Step 3
-        Path("docs/aae_raw.html").write_text(await page.content(), encoding="utf-8")
+        # Save the AAE HTML
+        aae_html = await page.content()
+        Path("docs/aae_raw.html").write_text(aae_html, encoding="utf-8")
 
-        # Placeholder until parsing logic is added
+        # Step 3: Parse bin panel
+        bin_dates = parse_bin_panel(aae_html)
+
+        if not bin_dates:
+            Path("docs/next.json").write_text(
+                '{"error": "Failed to parse bin panel"}',
+                encoding="utf-8"
+            )
+            await browser.close()
+            return
+
+        next_bin = compute_next_bin(bin_dates)
+
+        # Write final Bindicator output
         Path("docs/next.json").write_text(
-            '{"status": "AAE loaded"}',
+            json.dumps({"next": next_bin}, indent=2),
             encoding="utf-8"
         )
 
         await browser.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
