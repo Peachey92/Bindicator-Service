@@ -16,9 +16,12 @@ def parse_bin_panel(html: str):
     """
 
     # Find the section that contains 'Your next bin collection days are'
-    anchor_match = re.search(r'Your next bin collection days are:(.*?<div class="atPanelData">(.*?)</div>)',
-                             html,
-                             re.S)
+    anchor_match = re.search(
+        r'Your next bin collection days are:(.*?<div class="atPanelData">(.*?)</div>)',
+        html,
+        re.S
+    )
+
     if not anchor_match:
         return None
 
@@ -52,7 +55,6 @@ def parse_bin_panel(html: str):
         try:
             parsed = datetime.strptime(cleaned_date, "%A %d %B").date()
         except ValueError:
-            # If parsing fails, bail out
             return None
 
         # Year is missing → assume current or next year
@@ -68,20 +70,26 @@ def parse_bin_panel(html: str):
 
 def compute_next_bin(bin_dates: dict):
     """
-    Given a dict of bin dates, returns the next upcoming bin.
+    Returns all bins collected on the next upcoming date.
+    This supports:
+    - Colour + Food (normal)
+    - Food-only (future)
+    - Colour-only (unlikely)
     """
+
     today = date.today()
-    upcoming = sorted(bin_dates.items(), key=lambda x: x[1])
 
-    for bin_type, bin_date in upcoming:
-        if bin_date >= today:
-            return {
-                "type": bin_type,
-                "date": bin_date.isoformat(),
-                "days_until": (bin_date - today).days
-            }
+    # Find earliest date
+    earliest_date = min(bin_dates.values())
 
-    return None
+    # Collect all bins with that date
+    bins = [bin_type for bin_type, d in bin_dates.items() if d == earliest_date]
+
+    return {
+        "type": bins,
+        "date": earliest_date.isoformat(),
+        "days_until": (earliest_date - today).days
+    }
 
 
 async def main():
