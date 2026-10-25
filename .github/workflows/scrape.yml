@@ -44,12 +44,12 @@ jobs:
           if [ -f docs/next.json ]; then
             git add docs/next.json
           fi
-          
-          # Commit next.json if present
+
+          # Commit raw AAE HTML if present
           if [ -f docs/aae_raw.html ]; then
-            git docs/aae_raw.html
+            git add docs/aae_raw.html
           fi
-          
+
           # Commit fallback debug file only if AAE failed
           if [ -f docs/aae_failed.html ]; then
             git add docs/aae_failed.html
