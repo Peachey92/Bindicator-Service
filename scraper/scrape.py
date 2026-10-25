@@ -15,30 +15,43 @@ def parse_bin_panel(html: str):
     Returns a dict: { "Food": date, "Black": date, ... }
     """
 
+    # Extract the bin panel block
     panel_match = re.search(r'<div class="atPanelData">(.*?)</div>', html, re.S)
     if not panel_match:
         return None
 
     panel = panel_match.group(1)
 
-    # Regex: <strong>Food Bins:</strong> Friday 30th October
+    # Tolerant regex:
+    # - allows newlines inside <strong>
+    # - allows multiple spaces
+    # - allows broken words (e.g., "Black \n Bins")
+    # - captures the date reliably
     entries = re.findall(
-        r'<strong>(.*?) Bins:</strong>\s*([A-Za-z]+\s+\d{1,2}\w*\s+[A-Za-z]+)',
-        panel
+        r'<strong>\s*(.*?)\s*Bins:\s*</strong>\s*([A-Za-z]+\s+\d{1,2}\w*\s+[A-Za-z]+)',
+        panel,
+        re.S
     )
 
+    if not entries:
+        return None
+
     results = {}
-    for bin_type, date_str in entries:
+    for raw_type, raw_date in entries:
+
+        # Clean bin type (collapse whitespace)
+        bin_type = " ".join(raw_type.split())
+
         # Remove ordinal suffixes (st, nd, rd, th)
-        cleaned = (
-            date_str.replace("st", "")
+        cleaned_date = (
+            raw_date.replace("st", "")
                     .replace("nd", "")
                     .replace("rd", "")
                     .replace("th", "")
         )
 
         # Convert "Friday 30 October" → datetime.date
-        parsed = datetime.strptime(cleaned, "%A %d %B").date()
+        parsed = datetime.strptime(cleaned_date, "%A %d %B").date()
 
         # Year is missing → assume current or next year
         today = date.today()
@@ -103,7 +116,6 @@ async def main():
         try:
             await page.wait_for_selector("div.atPanelData", timeout=15000)
         except Exception:
-            # Fallback: AAE didn't load or selector changed
             Path("docs/aae_failed.html").write_text(await page.content(), encoding="utf-8")
             Path("docs/next.json").write_text(
                 '{"error": "AAE did not load"}',
