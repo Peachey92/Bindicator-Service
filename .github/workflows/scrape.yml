@@ -3,7 +3,7 @@ name: Update Bin Data
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "0 6 * * *"   # Run once daily at 06:00
 
 jobs:
   update:
@@ -35,59 +35,20 @@ jobs:
         run: |
           python scraper/scrape.py || true
 
-      - name: Commit debug output
+      - name: Commit Bindicator output
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          # Add console debug file
-          if [ -f docs/console.txt ]; then
-            git add docs/console.txt
-          fi
-
-          # Add original debug files
-          if [ -f docs/debug.html ]; then
-            git add docs/debug.html
-          fi
-
-          if [ -f docs/aae_debug.html ]; then
-            git add docs/aae_debug.html
-          fi
-
-          # Add step debug files
-          if [ -f docs/debug_step1_home.html ]; then
-            git add docs/debug_step1_home.html
-          fi
-
-          if [ -f docs/debug_step2_before_aae.html ]; then
-            git add docs/debug_step2_before_aae.html
-          fi
-
-          if [ -f docs/debug_step3_after_aae_goto.html ]; then
-            git add docs/debug_step3_after_aae_goto.html
-          fi
-
-          if [ -f docs/debug_step4_before_selector.html ]; then
-            git add docs/debug_step4_before_selector.html
-          fi
-
-          if [ -f docs/debug_step5_after_selector.html ]; then
-            git add docs/debug_step5_after_selector.html
-          fi
-
-          # Add screenshots if they exist
-          if [ -f docs/bae.png ]; then
-            git add docs/bae.png
-          fi
-
-          if [ -f docs/aae.png ]; then
-            git add docs/aae.png
-          fi
-
-          # Add next.json
+          # Commit next.json if present
           if [ -f docs/next.json ]; then
             git add docs/next.json
           fi
 
-          git commit -m "Update debug and output files" || echo "No changes to commit"
+          # Commit fallback debug file only if AAE failed
+          if [ -f docs/aae_failed.html ]; then
+            git add docs/aae_failed.html
+          fi
+
+          git commit -m "Update Bindicator output" || echo "No changes to commit"
           git push
