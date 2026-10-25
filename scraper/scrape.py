@@ -29,17 +29,17 @@ async def main():
 
         page = await context.new_page()
 
-        # Load homepage (sets session cookie)
+        # Load homepage to establish session cookies
         await page.goto(HOME_URL, wait_until="domcontentloaded", timeout=60000)
 
         # Navigate directly to AAE
         await page.goto(AAE_URL, wait_until="domcontentloaded", timeout=60000)
 
-        # Try to wait for the bin panel
+        # Reliable selector for the bin panel
         try:
-            await page.wait_for_selector("#atWasteCollection", timeout=15000)
+            await page.wait_for_selector("div.atPanelData", timeout=15000)
         except Exception:
-            # Fallback debug dump if AAE fails
+            # Fallback: AAE didn't load or selector changed
             Path("docs/aae_failed.html").write_text(await page.content(), encoding="utf-8")
             Path("docs/next.json").write_text(
                 '{"error": "AAE did not load"}',
@@ -48,10 +48,10 @@ async def main():
             await browser.close()
             return
 
-        # Save the AAE HTML for parsing in Step 2
+        # Save the AAE HTML for parsing in Step 3
         Path("docs/aae_raw.html").write_text(await page.content(), encoding="utf-8")
 
-        # Placeholder next.json until parsing is added in Step 2
+        # Placeholder until parsing logic is added
         Path("docs/next.json").write_text(
             '{"status": "AAE loaded"}',
             encoding="utf-8"
