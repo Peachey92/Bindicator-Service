@@ -11,25 +11,24 @@ AAE_URL = "https://maps.westsuffolk.gov.uk/?action=SetAddress&UniqueId=100106912
 
 def parse_bin_panel(html: str):
     """
-    Extracts bin types and dates from the AAE HTML panel.
+    Extracts bin types and dates from the 'Your next bin collection days are' panel.
     Returns a dict: { "Food": date, "Black": date, ... }
     """
 
-    # Extract the bin panel block
-    panel_match = re.search(r'<div class="atPanelData">(.*?)</div>', html, re.S)
-    if not panel_match:
+    # Find the section that contains 'Your next bin collection days are'
+    anchor_match = re.search(r'Your next bin collection days are:(.*?<div class="atPanelData">(.*?)</div>)',
+                             html,
+                             re.S)
+    if not anchor_match:
         return None
 
-    panel = panel_match.group(1)
+    panel_html = anchor_match.group(2)
 
-    # Tolerant regex:
-    # - allows newlines inside <strong>
-    # - allows multiple spaces
-    # - allows broken words (e.g., "Black \n Bins")
-    # - captures the date reliably
+    # Extract entries like:
+    # <strong>Food Bins:</strong> Friday 30th October
     entries = re.findall(
-        r'<strong>\s*(.*?)\s*Bins:\s*</strong>\s*([A-Za-z]+\s+\d{1,2}\w*\s+[A-Za-z]+)',
-        panel,
+        r'<strong>\s*(.*?)\s*Bins:\s*</strong>\s*([^<]+)',
+        panel_html,
         re.S
     )
 
@@ -38,20 +37,23 @@ def parse_bin_panel(html: str):
 
     results = {}
     for raw_type, raw_date in entries:
-
         # Clean bin type (collapse whitespace)
         bin_type = " ".join(raw_type.split())
 
-        # Remove ordinal suffixes (st, nd, rd, th)
+        # Clean date string (remove ordinal suffixes and extra spaces)
         cleaned_date = (
             raw_date.replace("st", "")
                     .replace("nd", "")
                     .replace("rd", "")
                     .replace("th", "")
-        )
+        ).strip()
 
         # Convert "Friday 30 October" → datetime.date
-        parsed = datetime.strptime(cleaned_date, "%A %d %B").date()
+        try:
+            parsed = datetime.strptime(cleaned_date, "%A %d %B").date()
+        except ValueError:
+            # If parsing fails, bail out
+            return None
 
         # Year is missing → assume current or next year
         today = date.today()
@@ -112,9 +114,9 @@ async def main():
         # Navigate directly to AAE
         await page.goto(AAE_URL, wait_until="domcontentloaded", timeout=60000)
 
-        # Reliable selector for the bin panel
+        # Reliable selector for the bin panel container
         try:
-            await page.wait_for_selector("div.atPanelData", timeout=15000)
+            await page.wait_for_selector("div.atPanelContainer", timeout=15000)
         except Exception:
             Path("docs/aae_failed.html").write_text(await page.content(), encoding="utf-8")
             Path("docs/next.json").write_text(
@@ -124,7 +126,7 @@ async def main():
             await browser.close()
             return
 
-        # Save the AAE HTML
+        # Save the full AAE HTML
         aae_html = await page.content()
         Path("docs/aae_raw.html").write_text(aae_html, encoding="utf-8")
 
