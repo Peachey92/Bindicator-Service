@@ -2,9 +2,9 @@
   "next": {
     "type": [
       "Food",
-      "Green"
+      "Black"
     ],
-    "date": "2026-10-30",
-    "days_until": 0
+    "date": "2026-11-06",
+    "days_until": 6
   }
 }
