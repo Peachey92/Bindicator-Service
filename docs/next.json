@@ -1,1 +1,10 @@
-{"error": "AAE did not load"}
+{
+  "next": {
+    "type": [
+      "Food",
+      "Blue"
+    ],
+    "date": "2026-11-13",
+    "days_until": 6
+  }
+}
