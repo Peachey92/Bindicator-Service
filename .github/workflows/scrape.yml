@@ -44,7 +44,11 @@ jobs:
           if [ -f docs/next.json ]; then
             git add docs/next.json
           fi
-
+          
+          # Commit schedule.json if present
+          if [ -f docs/schedule.json ]; then
+            git add docs/schedule.json
+          fi
 
           # Commit fallback debug file only if AAE failed
           if [ -f docs/aae_failed.html ]; then
