@@ -69,4 +69,40 @@ async function loadSchedule() {
     scheduleDiv.innerHTML = '';
 
     const sortedBins = Object.entries(data.bins)
-        .sort((a, b) => new Date(a[1]) -
+        .sort((a, b) => new Date(a[1]) - new Date(b[1]));
+
+    for (const [bin, date] of sortedBins) {
+
+        const card = document.createElement('div');
+
+        card.className = 'card';
+
+        card.innerHTML = `
+            <div class="bin-name">${bin}</div>
+            <div class="date">
+                ${new Date(date).toLocaleDateString(
+                    'en-GB',
+                    {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                    }
+                )}
+            </div>
+        `;
+
+        scheduleDiv.appendChild(card);
+    }
+
+    document.getElementById('lastUpdated').innerHTML =
+        'Last updated: ' +
+        new Date(data.updated).toLocaleString('en-GB');
+}
+
+loadSchedule();
+
+</script>
+
+</body>
+</html>
