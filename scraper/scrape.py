@@ -80,7 +80,6 @@ def compute_next_bin(bin_dates: dict):
     """
     Returns all bins collected on the next upcoming date.
     Supports:
-
     - Colour + Food
     - Food only
     - Colour only
@@ -207,11 +206,14 @@ async def main():
             encoding="utf-8"
         )
 
-        # New website-friendly schedule output
+        # Website schedule output
 
         schedule = {
-            name: value.isoformat()
-            for name, value in bin_dates.items()
+            "updated": datetime.now().isoformat(),
+            "bins": {
+                name: value.isoformat()
+                for name, value in bin_dates.items()
+            }
         }
 
         Path("docs/schedule.json").write_text(
