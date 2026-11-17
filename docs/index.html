@@ -7,6 +7,7 @@
 <title>Bindicator</title>
 
 <style>
+
 body {
     font-family: Arial, sans-serif;
     max-width: 600px;
@@ -35,6 +36,14 @@ h1 {
 .date {
     color: #555;
 }
+
+.last-updated {
+    text-align: center;
+    color: #888;
+    font-size: 0.8em;
+    margin-top: 25px;
+}
+
 </style>
 </head>
 
@@ -45,6 +54,8 @@ h1 {
 <div id="schedule">
     Loading collection schedule...
 </div>
+
+<div id="lastUpdated" class="last-updated"></div>
 
 <script>
 
@@ -57,36 +68,5 @@ async function loadSchedule() {
 
     scheduleDiv.innerHTML = '';
 
-    const sortedBins = Object.entries(data)
-        .sort((a, b) => new Date(a[1]) - new Date(b[1]));
-
-    for (const [bin, date] of sortedBins) {
-
-        const card = document.createElement('div');
-        card.className = 'card';
-
-        card.innerHTML = `
-            <div class="bin-name">${bin}</div>
-            <div class="date">
-                ${new Date(date).toLocaleDateString(
-                    'en-GB',
-                    {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                    }
-                )}
-            </div>
-        `;
-
-        scheduleDiv.appendChild(card);
-    }
-}
-
-loadSchedule();
-
-</script>
-
-</body>
-</html>
+    const sortedBins = Object.entries(data.bins)
+        .sort((a, b) => new Date(a[1]) -
