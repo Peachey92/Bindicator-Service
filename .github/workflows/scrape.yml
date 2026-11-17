@@ -3,7 +3,7 @@ name: Update Bin Data
 on:
   workflow_dispatch:
   schedule:
-    - cron: "42 21 * * *"   # Run once daily at 21:42 UTC
+    - cron: "17 0 * * *"   # Run once daily at 00:17 UTC
 
 jobs:
   update:
@@ -45,10 +45,6 @@ jobs:
             git add docs/next.json
           fi
 
-          # Commit raw AAE HTML if present
-          if [ -f docs/aae_raw.html ]; then
-            git add docs/aae_raw.html
-          fi
 
           # Commit fallback debug file only if AAE failed
           if [ -f docs/aae_failed.html ]; then
