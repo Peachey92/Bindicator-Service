@@ -136,7 +136,6 @@ async def main():
 
         # Save the full AAE HTML
         aae_html = await page.content()
-        Path("docs/aae_raw.html").write_text(aae_html, encoding="utf-8")
 
         # Step 3: Parse bin panel
         bin_dates = parse_bin_panel(aae_html)
