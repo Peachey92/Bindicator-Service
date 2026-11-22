@@ -3,7 +3,7 @@ name: Update Bin Data
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 0 * * *"   # Run once daily at 00:17 UTC
+    - cron: "17 21 * * *"   # Run once daily at 21:17 UTC
 
 jobs:
   update:
