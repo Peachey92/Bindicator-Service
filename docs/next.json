@@ -1,6 +1,7 @@
 {
   "next": {
     "type": [
+      "Food",
       "Black"
     ],
     "date": "2026-12-04",
